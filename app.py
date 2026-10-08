@@ -12,12 +12,12 @@ from pathlib import Path
 from typing import Any
 
 import av
-import cv2
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 import torch
+from PIL import Image, ImageDraw, ImageFont
 from streamlit_webrtc import RTCConfiguration, WebRtcMode, webrtc_streamer
 from ultralytics import YOLO
 
@@ -118,36 +118,35 @@ def draw_detections(
     frame: np.ndarray, detections: list[dict[str, Any]]
 ) -> np.ndarray:
     """Draw readable bounding boxes and confidence labels on a BGR frame."""
-    annotated = frame.copy()
+    annotated_image = Image.fromarray(frame[:, :, ::-1])
+    draw = ImageDraw.Draw(annotated_image)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 16)
+    except OSError:
+        font = ImageFont.load_default()
+
     for detection in detections:
         x1, y1, x2, y2 = detection["box"]
         class_name = detection["class_name"]
         confidence = detection["confidence"]
-        color = (0, 210, 255)
-        cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+        color = (255, 210, 0)
+        draw.rectangle((x1, y1, x2, y2), outline=color, width=3)
         label = f"{class_name} {confidence:.0%}"
-        (text_width, text_height), baseline = cv2.getTextSize(
-            label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2
+        left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
+        text_width = right - left
+        text_height = bottom - top
+        label_top = max(0, y1 - text_height - 8)
+        draw.rectangle(
+            (x1, label_top, x1 + text_width + 8, label_top + text_height + 8),
+            fill=color,
         )
-        label_y = max(y1, text_height + baseline + 4)
-        cv2.rectangle(
-            annotated,
-            (x1, label_y - text_height - baseline - 4),
-            (x1 + text_width + 8, label_y),
-            color,
-            -1,
-        )
-        cv2.putText(
-            annotated,
+        draw.text(
+            (x1 + 4, label_top + 4),
             label,
-            (x1 + 4, label_y - baseline - 2),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (8, 15, 24),
-            2,
-            cv2.LINE_AA,
+            fill=(8, 15, 24),
+            font=font,
         )
-    return annotated
+    return np.asarray(annotated_image)[:, :, ::-1].copy()
 
 
 def process_frame(
