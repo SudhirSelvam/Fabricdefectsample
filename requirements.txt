@@ -7,4 +7,5 @@ pandas>=2.0,<3
 pillow>=10,<12
 plotly>=5.18,<7
 torch>=2.0,<3
-av>=12,<15
+# PyAV 19 provides prebuilt wheels for Streamlit Cloud's Python 3.14 runtime.
+av>=19,<20
