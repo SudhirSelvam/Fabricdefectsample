@@ -312,6 +312,14 @@ def main() -> None:
             step=0.05,
             help="Only predictions at or above this confidence are shown.",
         )
+        camera_facing = st.selectbox(
+            "Camera",
+            options=("environment", "user"),
+            format_func=lambda value: (
+                "Back camera" if value == "environment" else "Front camera"
+            ),
+            help="Choose the rear camera for fabric inspection on phones.",
+        )
         if st.button("Reset statistics", use_container_width=True):
             state.reset()
             st.rerun()
@@ -333,16 +341,14 @@ def main() -> None:
 
     try:
         stream_context = webrtc_streamer(
-            key="fabric-defect-camera",
+            key=f"fabric-defect-camera-{camera_facing}",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=rtc_configuration,
             video_frame_callback=video_callback,
             async_processing=True,
             video_receiver_size=1,
             media_stream_constraints={
-                # Keep constraints intentionally broad for desktop, Android,
-                # and iOS browser compatibility.
-                "video": True,
+                "video": {"facingMode": {"ideal": camera_facing}},
                 "audio": False,
             },
             video_html_attrs={
