@@ -35,6 +35,7 @@ CLASS_NAMES = [
 ]
 MODEL_PATH = Path(__file__).resolve().parent / "best.pt"
 MAX_HISTORY_ROWS = 500
+INFERENCE_SIZE = 416
 INFERENCE_LOCK = threading.Lock()
 
 
@@ -166,6 +167,9 @@ def process_frame(
         results = model.predict(
             source=image,
             conf=confidence_threshold,
+            imgsz=INFERENCE_SIZE,
+            max_det=30,
+            half=device.startswith("cuda"),
             device=device,
             verbose=False,
         )
@@ -329,18 +333,31 @@ def main() -> None:
         )
 
     try:
-        webrtc_streamer(
+        stream_context = webrtc_streamer(
             key="fabric-defect-camera",
             mode=WebRtcMode.SENDRECV,
             rtc_configuration=rtc_configuration,
             video_frame_callback=video_callback,
-            async_processing=False,
+            async_processing=True,
+            video_receiver_size=1,
             media_stream_constraints={
-                "video": {"facingMode": {"ideal": "environment"}},
+                # Keep constraints intentionally broad for desktop, Android,
+                # and iOS browser compatibility.
+                "video": True,
                 "audio": False,
             },
-            video_html_attrs={"controls": False, "muted": True},
+            video_html_attrs={
+                "autoPlay": True,
+                "controls": False,
+                "playsInline": True,
+                "muted": True,
+            },
         )
+        if not stream_context.state.playing:
+            st.info(
+                "Click **Start** in the camera panel, then allow camera access "
+                "in your browser."
+            )
     except Exception as error:
         st.error(
             "The camera stream could not start. Check browser camera permissions, "
